@@ -7,6 +7,11 @@ entry_module = "src.app.main"
 
 [build]
 
+# Bundle Whisper model assets
+add_data = [
+    { package = "whisper", src = "assets", dest = "whisper/assets", required = true }
+]
+
 # Bundle ffmpeg binary for audio processing
 add_binary = [
     { name = "ffmpeg", dest = ".", required = false }
