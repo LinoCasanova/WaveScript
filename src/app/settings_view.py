@@ -7,6 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import urllib.request
+import ssl
+import certifi
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QGroupBox, QMessageBox, QListWidget, QListWidgetItem,
@@ -35,7 +37,6 @@ class ModelDownloadWorker(QThread):
     def run(self):
         """Download the model with progress tracking."""
         try:
-            import whisper
 
             # Whisper model URLs (from whisper/__init__.py)
             _MODELS = {
@@ -65,7 +66,9 @@ class ModelDownloadWorker(QThread):
                         self._last_reported_percentage = percentage
                         self.progress.emit(percentage)
 
-            urllib.request.urlretrieve(url, output_path, reporthook=progress_hook)
+            # Create SSL context with certifi certificates
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            urllib.request.urlretrieve(url, output_path, reporthook=progress_hook, context=ssl_context)
 
             self.finished.emit(True, "")
 
@@ -275,11 +278,9 @@ class SettingsView(QWidget):
         if model_path:
             self.model_path_edit.setText(model_path)
         else:
-            # Show default path
             default_path = SettingsHelper.get_model_directory()
             self.model_path_edit.setText(str(default_path))
 
-        # Refresh models list
         self._refresh_models_list()
 
     def _save_settings(self) -> None:
@@ -400,7 +401,6 @@ class SettingsView(QWidget):
         if success:
             QMessageBox.information(self, "Success", "Model downloaded successfully!")
             self._refresh_models_list()
-            # Emit signal to update main UI (but don't close settings)
             self.models_changed.emit()
         else:
             QMessageBox.critical(self, "Error", f"Failed to download model: {error_message}")
@@ -431,9 +431,7 @@ class SettingsView(QWidget):
 
         if directory:
             self.model_path_edit.setText(directory)
-            # Save the path immediately
             Context.Settings.set("whisper_models_path", directory)
-            # Refresh models list to show models in new directory
             self._refresh_models_list()
 
     def _delete_selected_model(self) -> None:
@@ -462,7 +460,6 @@ class SettingsView(QWidget):
             if SettingsHelper.delete_model(model_name):
                 QMessageBox.information(self, "Success", f"Model '{model_name}' deleted successfully!")
                 self._refresh_models_list()
-                # Emit signal to update main UI (but don't close settings)
                 self.models_changed.emit()
             else:
                 QMessageBox.critical(self, "Error", f"Failed to delete model '{model_name}'.")
