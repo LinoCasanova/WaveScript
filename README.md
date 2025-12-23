@@ -4,11 +4,17 @@ A desktop application for audio and video transcription using OpenAI's Whisper m
 
 ## Features
 
-- **Dual transcription modes**: Online (OpenAI API) or offline (local Whisper models)
+- **Dual transcription modes**:  Offline (local Whisper models) or Online (OpenAI API)
 - **Multiple file formats**: Supports audio (MP3, WAV, M4A, etc.) and video (MP4, MOV, AVI, etc.)
 - **Automatic device detection**: Utilizes CUDA, Apple Silicon (MPS), or CPU
 - **SRT subtitle generation**: Creates industry-standard subtitle files
 - **Built-in SRT editor**: Edit generated subtitles directly in the app
+
+## GPU Support
+
+- **Windows**: NVIDIA GPUs (CUDA)
+- **macOS (Apple Silicon)**: M1/M2/M3/M4 chips (Metal)
+- **macOS (Intel)**: CPU only
 
 ## Installation
 
