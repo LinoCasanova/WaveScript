@@ -1,13 +1,12 @@
 # 🌊 WaveScript 📝
 
-A desktop application for audio and video transcription using OpenAI's Whisper model.
+A desktop application to create SRT files using OpenAI's Whisper model.
 
 ## Features
 
 - **Dual transcription modes**:  Offline (local Whisper models) or Online (OpenAI API)
 - **Multiple file formats**: Supports audio (MP3, WAV, M4A, etc.) and video (MP4, MOV, AVI, etc.)
-- **Automatic device detection**: Utilizes CUDA, Apple Silicon (MPS), or CPU
-- **SRT subtitle generation**: Creates industry-standard subtitle files
+- **Automatic device detection**: Utilizes CUDA, Apple Silicon (MPS) or CPU
 - **Built-in SRT editor**: Edit generated subtitles directly in the app
 
 ## GPU Support
@@ -30,12 +29,12 @@ uv run run
 ## Usage
 
 1. Launch WaveScript
-2. Select transcription mode (Online/Offline)
-3. Choose a Whisper model size
-4. Select your audio or video file
-5. Click transcribe and wait for the SRT file to be generated
+2. Select your audio or video file
+3. Choose a transcription mode (Offline/Online)
+4. Click transcribe and wait for the SRT file to be generated
 
-For online mode, configure your OpenAI API key in Settings (⚙).
+To use the app, make sure to download at least one whisper model for **offline mode** or configure your OpenAI API key for **online mode**. Both can be done inside the settings (⚙). 
+
 
 ## Building
 
