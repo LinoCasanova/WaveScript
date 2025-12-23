@@ -109,12 +109,12 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
         onefile = False
         windowed = False
         clean = False
-        print("🔧 Building in DEBUG mode (onedir, with console)")
+        print("Building in DEBUG mode (onedir, with console)")
     else:
         onefile = True
         windowed = True
         clean = True
-        print("📦 Building in PRODUCTION mode (onefile, windowed)")
+        print("Building in PRODUCTION mode (onefile, windowed)")
 
     # Auto-correct macOS onefile+windowed (PyInstaller deprecates this)
     if platform == Platform.MACOS and onefile and windowed:
@@ -150,7 +150,7 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
 
     # If using spec file and it exists, use it directly
     if use_spec and spec_file.exists():
-        print(f"📄 Using existing spec file: {spec_file}")
+        print(f"Using existing spec file: {spec_file}")
         cmd: list[str] = [
             pyinstaller_exe,
             str(spec_file),
@@ -202,10 +202,10 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
                 src = pkg_dir / data_entry["src"]
             except (ImportError, AttributeError) as e:
                 if data_entry.get("required", False):
-                    print(f"⚠️  Required package not found: {data_entry['package']}")
+                    print(f"Required package not found: {data_entry['package']}")
                     sysexit(1)
                 else:
-                    print(f"⚠️  Package {data_entry['package']} not found, skipping")
+                    print(f"Package {data_entry['package']} not found, skipping")
                     continue
         else:
             # Support absolute paths or relative to project root
@@ -215,7 +215,7 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
         if src.exists():
             cmd.extend(_add_data_arg(src, data_entry["dest"]))
         elif data_entry.get("required", False):
-            print(f"⚠️  Required data path not found: {src}")
+            print(f"Required data path not found: {src}")
             sysexit(1)
 
     # Add additional binaries
@@ -224,7 +224,7 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
         if binary_path:
             cmd.extend(["--add-binary", f"{binary_path}{_sep()}{binary_entry.get('dest', '.')}"])
         elif binary_entry.get("required", False):
-            print(f"⚠️  Required binary not found: {binary_entry['name']}")
+            print(f"Required binary not found: {binary_entry['name']}")
             sysexit(1)
 
     # Add hidden imports
@@ -250,8 +250,8 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
 
     # Notify about spec file generation
     if use_spec and spec_file.exists():
-        print(f"✅ Spec file generated: {spec_file}")
-        print("   You can customize it and future builds will use it automatically.")
+        print(f"Spec file generated: {spec_file}")
+        print("     You can customize it and future builds will use it automatically.")
 
     # Handle packaging
     _handle_packaging(platform, app_name, dist_dir, build_root, package)
