@@ -13,8 +13,7 @@ A desktop application for audio and video transcription using OpenAI's Whisper m
 ## GPU Support
 
 - **Windows**: NVIDIA GPUs (CUDA)
-- **macOS (Apple Silicon)**: M1/M2/M3/M4 chips (Metal)
-- **macOS (Intel)**: CPU only
+- **macOS**: Apple Silicon M1/M2/M3/M4 chips (Metal)
 
 ## Installation
 

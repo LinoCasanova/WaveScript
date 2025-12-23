@@ -177,7 +177,6 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
         "--name", app_name,
         *(["--onefile"] if onefile else []),
         *(["--windowed"] if windowed else []),
-        *(["--target-arch", "universal2"] if platform == Platform.MACOS else []),
         *_icon_args(platform, assets_dir),
         # Bundle resources:
         *_add_data_arg(assets_dir, "resources/assets"),
