@@ -1,4 +1,4 @@
-# 🌊 WaveScript
+# 🌊 WaveScript 📝
 
 A desktop application for audio and video transcription using OpenAI's Whisper model.
 
