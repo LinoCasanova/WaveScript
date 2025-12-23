@@ -120,6 +120,13 @@ QPushButton#TranscribeButton:disabled {
     color: #666666;
 }
 
+/* Settings gear button */
+QPushButton#SettingsGearButton {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
 /* =========================================================
    ComboBox (button-style arrow)
    ========================================================= */
@@ -326,4 +333,20 @@ QScrollBar::add-line,
 QScrollBar::sub-line {
     width: 0px;
     height: 0px;
+}
+
+/* =========================================================
+   ProgressDialog
+   ========================================================= */
+
+QProgressDialog {
+    background-color: #06071b;
+}
+
+QProgressDialog QLabel {
+    margin-top: 10px;
+}
+
+QProgressDialog QPushButton {
+    margin-top: 10px;
 }

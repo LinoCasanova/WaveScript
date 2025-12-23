@@ -132,9 +132,13 @@ class Transcriber:
 
         log(f"Loading Whisper model '{model_type.value}' on {device_info.display_name}...")
 
+        # Get model directory from settings
+        from .settings_view import SettingsHelper
+        model_dir = SettingsHelper.get_model_directory()
+
         # Try with detected device first, fall back to CPU if it fails
         try:
-            model = whisper.load_model(model_type.value, device=device_info.name)
+            model = whisper.load_model(model_type.value, device=device_info.name, download_root=str(model_dir))
 
             log("Starting local transcription...")
 
@@ -148,7 +152,7 @@ class Transcriber:
             if device_info.device == "mps":
                 log(f"⚠️  MPS failed with error, falling back to CPU: {e}")
                 device_info = DeviceInfo(device="cpu", name="cpu", display_name="CPU (MPS fallback)")
-                model = whisper.load_model(model_type.value, device="cpu")
+                model = whisper.load_model(model_type.value, device="cpu", download_root=str(model_dir))
                 result = model.transcribe(
                     str(file_path),
                     language=None if settings.language == Language.AUTO else settings.language.value,

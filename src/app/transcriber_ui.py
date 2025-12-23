@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QSpinBox, QFileDialog, QProgressBar, QGroupBox, QMessageBox,
     QStackedWidget, QStackedLayout, QSpacerItem, QSizePolicy
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QIcon
 from .transcriber_types import (
     TranscriptionSettings, Language, WhisperModel, TranscriptionMode
 )
@@ -14,6 +15,45 @@ from .settings_view import SettingsView, SettingsHelper
 from src.util.context import Context
 from src.util.media import MediaHandler
 from .srt_editor import SrtEditorDialog
+
+
+class IconButton(QPushButton):
+    """Button that changes icon on hover and press."""
+
+    def __init__(self, normal_icon: Path, hover_icon: Path, pressed_icon: Path, size: int = 22, parent=None):
+        super().__init__(parent)
+        self.normal_icon = QIcon(str(normal_icon))
+        self.hover_icon = QIcon(str(hover_icon))
+        self.pressed_icon = QIcon(str(pressed_icon))
+
+        self.setIcon(self.normal_icon)
+        self.setIconSize(QSize(size, size))
+        self.setObjectName("SettingsGearButton")
+        self.setFixedSize(40, 40)
+        self.setFlat(True)
+
+    def enterEvent(self, event):
+        """Mouse enters button - show hover icon."""
+        self.setIcon(self.hover_icon)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        """Mouse leaves button - show normal icon."""
+        self.setIcon(self.normal_icon)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """Mouse pressed - show pressed icon."""
+        self.setIcon(self.pressed_icon)
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Mouse released - show hover if still hovering, otherwise normal."""
+        if self.rect().contains(event.pos()):
+            self.setIcon(self.hover_icon)
+        else:
+            self.setIcon(self.normal_icon)
+        super().mouseReleaseEvent(event)
 
 
 class TranscriberUI(QWidget):
@@ -68,8 +108,11 @@ class TranscriberUI(QWidget):
         self.setWindowTitle("Audio Transcriber")
         self.setMinimumWidth(475)
         self.setMaximumWidth(475)
-        self.setMinimumHeight(650)
-        self.setMaximumHeight(650)
+        self.setMinimumHeight(655)
+        self.setMaximumHeight(655)
+
+        # Enable drag and drop
+        self.setAcceptDrops(True)
 
         # Main layout
         main_layout = QVBoxLayout()
@@ -82,22 +125,14 @@ class TranscriberUI(QWidget):
         top_bar_layout.setContentsMargins(0, 10, 10, 0)
         top_bar_layout.addStretch()
 
-        # Settings gear button
-        self.settings_btn = QPushButton("⚙")
-        self.settings_btn.setFixedSize(40, 40)
-        self.settings_btn.setFlat(True)
-        self.settings_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                color: #00ffee;
-                font-size: 24px;
-                padding: 0;
-            }
-            QPushButton:hover {
-                color: #ea0a54;
-            }
-        """)
+        # Settings gear button with icon (20px = smaller size)
+        icon_dir = Context.assets_dir / "icons"
+        self.settings_btn = IconButton(
+            normal_icon=icon_dir / "gear.svg",
+            hover_icon=icon_dir / "gear_hover.svg",
+            pressed_icon=icon_dir / "gear_pressed.svg",
+            size=20
+        )
         self.settings_btn.clicked.connect(self.toggle_settings)
         self.settings_btn.setToolTip("Settings")
         top_bar_layout.addWidget(self.settings_btn)
@@ -166,6 +201,7 @@ class TranscriberUI(QWidget):
         # Status label
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet("margin-left: 1px;")
         progress_layout.addWidget(self.status_label)
 
         progress_container.setLayout(progress_layout)
@@ -186,7 +222,7 @@ class TranscriberUI(QWidget):
         # Create settings view
         self.settings_view = SettingsView(self)
         self.settings_view.settings_saved.connect(self._on_settings_saved)
-        self.settings_view.settings_cancelled.connect(self._return_to_main_view)
+        self.settings_view.models_changed.connect(self._on_models_changed)
         self.stacked_widget.addWidget(self.settings_view)  # Index 1
 
         main_layout.addWidget(self.stacked_widget)
@@ -342,6 +378,11 @@ class TranscriberUI(QWidget):
         # Return to main view
         self._return_to_main_view()
 
+    def _on_models_changed(self) -> None:
+        """Handle models changed signal (install/delete) - stay in settings."""
+        # Update UI based on new settings but don't close settings view
+        self.update_ui_based_on_settings()
+
     def toggle_settings(self):
         """Switch to settings view."""
         # Load current settings
@@ -396,6 +437,18 @@ class TranscriberUI(QWidget):
         else:
             self.offline_radio.setToolTip("")
 
+        # Update transcribe button state - only enable if file is selected AND a valid mode is available
+        if self.selected_file:
+            # Check if currently selected mode is valid
+            if self.offline_radio.isChecked() and not has_models:
+                self.transcribe_btn.setEnabled(False)
+            elif self.online_radio.isChecked() and not has_api_key:
+                self.transcribe_btn.setEnabled(False)
+            else:
+                self.transcribe_btn.setEnabled(True)
+        else:
+            self.transcribe_btn.setEnabled(False)
+
 
     def browse_file(self):
         """Open file dialog to select an audio or video file."""
@@ -442,6 +495,9 @@ class TranscriberUI(QWidget):
         """Handle mode selection changes."""
         is_offline = self.offline_radio.isChecked()
         self.model_layout_widget.setVisible(is_offline)
+
+        # Update transcribe button state based on new mode
+        self.update_ui_based_on_settings()
 
 
     def start_transcription(self):
@@ -585,3 +641,41 @@ class TranscriberUI(QWidget):
                     # Log error but don't prevent closing
                     print(f"Warning: Failed to clean up temporary file {temp_file}: {e}")
         self.temp_files.clear()
+
+    def dragEnterEvent(self, event):
+        """Handle drag enter events for drag and drop."""
+        if event.mimeData().hasUrls():
+            # Check if any of the URLs point to valid media files
+            urls = event.mimeData().urls()
+            if urls:
+                file_path = Path(urls[0].toLocalFile())
+                # Check if it's a supported media file
+                supported_extensions = {'.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma',
+                                       '.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv'}
+                if file_path.suffix.lower() in supported_extensions:
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event):
+        """Handle drop events for drag and drop."""
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            if urls:
+                file_path = Path(urls[0].toLocalFile())
+                # Validate and set the file
+                supported_extensions = {'.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma',
+                                       '.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv'}
+                if file_path.exists() and file_path.suffix.lower() in supported_extensions:
+                    self.selected_file = file_path
+                    self.file_path_edit.setText(str(self.selected_file))
+                    # Update transcribe button based on valid mode availability
+                    self.update_ui_based_on_settings()
+                    event.acceptProposedAction()
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Invalid File",
+                        "Please drop a valid audio or video file."
+                    )
+                    event.ignore()

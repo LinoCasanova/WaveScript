@@ -6,34 +6,102 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+import urllib.request
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QGroupBox, QMessageBox, QListWidget, QListWidgetItem,
-    QCheckBox, QProgressDialog
+    QCheckBox, QProgressDialog, QFileDialog
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtCore import Signal as pyqtSignal
 
 from .transcriber_types import WhisperModel
 from src.util.context import Context
 
 
+class ModelDownloadWorker(QThread):
+    """Worker thread for downloading Whisper models with progress tracking."""
+
+    progress = pyqtSignal(int)  # Progress percentage (0-100)
+    finished = pyqtSignal(bool, str)  # Success flag, error message
+
+    def __init__(self, model_name: str, download_dir: Path):
+        super().__init__()
+        self.model_name = model_name
+        self.download_dir = download_dir
+        self._is_cancelled = False
+        self._last_reported_percentage = -1
+
+    def run(self):
+        """Download the model with progress tracking."""
+        try:
+            import whisper
+
+            # Whisper model URLs (from whisper/__init__.py)
+            _MODELS = {
+                "tiny": "https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt",
+                "base": "https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt",
+                "small": "https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt",
+                "medium": "https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt",
+                "large": "https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt",
+            }
+
+            url = _MODELS.get(self.model_name)
+            if not url:
+                self.finished.emit(False, f"Unknown model: {self.model_name}")
+                return
+
+            # Prepare download path
+            self.download_dir.mkdir(parents=True, exist_ok=True)
+            output_path = self.download_dir / f"{self.model_name}.pt"
+
+            # Download with progress tracking
+            def progress_hook(block_num, block_size, total_size):
+                if total_size > 0:
+                    downloaded = block_num * block_size
+                    percentage = min(int((downloaded / total_size) * 100), 100)
+                    # Only emit progress updates when percentage changes (reduce signal overhead)
+                    if percentage != self._last_reported_percentage:
+                        self._last_reported_percentage = percentage
+                        self.progress.emit(percentage)
+
+            urllib.request.urlretrieve(url, output_path, reporthook=progress_hook)
+
+            self.finished.emit(True, "")
+
+        except Exception as e:
+            self.finished.emit(False, str(e))
+
+
 class SettingsHelper:
     """Helper class for settings-related operations."""
+
+    # Approximate model sizes in MB (from OpenAI Whisper documentation)
+    MODEL_SIZES = {
+        "tiny": 75,
+        "base": 145,
+        "small": 466,
+        "medium": 1500,
+        "large": 2900
+    }
+
+    @staticmethod
+    def get_model_directory() -> Path:
+        """Get the configured model directory or use default."""
+        # Check if user has configured a custom path
+        custom_path = Context.Settings.get("whisper_models_path", "")
+        if custom_path and Path(custom_path).exists():
+            return Path(custom_path)
+
+        # Use default Whisper cache location
+        cache_dir = os.getenv('XDG_CACHE_HOME', str(Path.home() / ".cache"))
+        return Path(cache_dir) / "whisper"
 
     @staticmethod
     def get_installed_models() -> set:
         """Check which Whisper models are already installed."""
-        import whisper
         installed = set()
-
-        # Get Whisper's download root - try multiple locations
-        download_root = None
-        if hasattr(whisper, '_MODELS_DIR'):
-            download_root = Path(whisper._MODELS_DIR)
-        else:
-            # Try default cache locations
-            cache_dir = os.getenv('XDG_CACHE_HOME', str(Path.home() / ".cache"))
-            download_root = Path(cache_dir) / "whisper"
+        download_root = SettingsHelper.get_model_directory()
 
         if download_root and download_root.exists():
             for model in WhisperModel:
@@ -43,6 +111,20 @@ class SettingsHelper:
                     installed.add(model.value)
 
         return installed
+
+    @staticmethod
+    def delete_model(model_name: str) -> bool:
+        """Delete a specific Whisper model file."""
+        download_root = SettingsHelper.get_model_directory()
+        model_file = download_root / f"{model_name}.pt"
+
+        if model_file.exists():
+            try:
+                model_file.unlink()
+                return True
+            except Exception:
+                return False
+        return False
 
     @staticmethod
     def get_stored_api_key() -> str:
@@ -60,8 +142,8 @@ class SettingsView(QWidget):
 
     # Signal emitted when settings are saved
     settings_saved = Signal()
-    # Signal emitted when user cancels settings
-    settings_cancelled = Signal()
+    # Signal emitted when models change (install/delete) - doesn't close settings
+    models_changed = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -124,31 +206,52 @@ class SettingsView(QWidget):
         models_group = QGroupBox("Local Whisper Models")
         models_layout = QVBoxLayout()
 
+        # Model directory path
+        path_layout = QHBoxLayout()
+        path_label = QLabel("Models Directory:")
+        path_layout.addWidget(path_label)
+
+        self.model_path_edit = QLineEdit()
+        self.model_path_edit.setPlaceholderText("Default: ~/.cache/whisper")
+        self.model_path_edit.setReadOnly(True)
+        path_layout.addWidget(self.model_path_edit)
+
+        browse_path_btn = QPushButton("Browse")
+        browse_path_btn.clicked.connect(self._browse_model_path)
+        path_layout.addWidget(browse_path_btn)
+
+        models_layout.addLayout(path_layout)
+
         self.models_list = QListWidget()
         self.models_list.setSelectionMode(QListWidget.SingleSelection)
         self.models_list.setMaximumHeight(150)
         models_layout.addWidget(self.models_list)
 
+        # Button layout for model actions
+        model_buttons_layout = QHBoxLayout()
+
         install_btn = QPushButton("Install Selected Model")
         install_btn.clicked.connect(self._install_selected_model)
-        models_layout.addWidget(install_btn)
+        model_buttons_layout.addWidget(install_btn)
+
+        delete_btn = QPushButton("Delete Selected Model")
+        delete_btn.clicked.connect(self._delete_selected_model)
+        model_buttons_layout.addWidget(delete_btn)
+
+        models_layout.addLayout(model_buttons_layout)
 
         models_group.setLayout(models_layout)
         layout.addWidget(models_group)
 
         layout.addStretch()
 
-        # Save and Cancel buttons at the bottom
+        # Close button at the bottom
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch()
 
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self._on_cancel)
-        buttons_layout.addWidget(cancel_btn)
-
-        save_btn = QPushButton("Save Settings")
-        save_btn.clicked.connect(self._on_save)
-        buttons_layout.addWidget(save_btn)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self._on_close)
+        buttons_layout.addWidget(close_btn)
 
         layout.addLayout(buttons_layout)
 
@@ -167,20 +270,39 @@ class SettingsView(QWidget):
         remove_temp = Context.Settings.get("remove_temp_files_on_close", True)
         self.remove_temp_checkbox.setChecked(remove_temp)
 
+        # Load model path
+        model_path = Context.Settings.get("whisper_models_path", "")
+        if model_path:
+            self.model_path_edit.setText(model_path)
+        else:
+            # Show default path
+            default_path = SettingsHelper.get_model_directory()
+            self.model_path_edit.setText(str(default_path))
+
         # Refresh models list
         self._refresh_models_list()
 
-    def _on_save(self) -> None:
-        """Save settings and emit signal."""
+    def _save_settings(self) -> None:
+        """Save all settings to persistent storage."""
         Context.Settings.set("api_key", self.api_key_edit.text())
         Context.Settings.set("open_srt_editor_when_done", self.open_editor_checkbox.isChecked())
         Context.Settings.set("remove_temp_files_on_close", self.remove_temp_checkbox.isChecked())
 
-        self.settings_saved.emit()
+        # Save model path (only if it's not the default)
+        model_path = self.model_path_edit.text()
+        default_cache = os.getenv('XDG_CACHE_HOME', str(Path.home() / ".cache"))
+        default_path = str(Path(default_cache) / "whisper")
+        if model_path and model_path != default_path:
+            Context.Settings.set("whisper_models_path", model_path)
+        else:
+            # Clear custom path if set to default
+            if Context.Settings.contains("whisper_models_path"):
+                Context.Settings.delete("whisper_models_path")
 
-    def _on_cancel(self) -> None:
-        """Cancel settings changes and emit signal."""
-        self.settings_cancelled.emit()
+    def _on_close(self) -> None:
+        """Save settings and close."""
+        self._save_settings()
+        self.settings_saved.emit()
 
     def _toggle_api_key_visibility(self, checked: bool) -> None:
         """Toggle API key visibility."""
@@ -228,11 +350,18 @@ class SettingsView(QWidget):
 
         model_name = current_item.text().split()[0]
 
+        # Get model size
+        size_mb = SettingsHelper.MODEL_SIZES.get(model_name, 0)
+        if size_mb >= 1000:
+            size_str = f"{size_mb / 1000:.1f} GB"
+        else:
+            size_str = f"{size_mb} MB"
+
         reply = QMessageBox.question(
             self,
             "Install Model",
             f"Download and install the '{model_name}' model?\n\n"
-            f"This may take several minutes depending on your connection.",
+            f"Download size: {size_str}",
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -240,19 +369,100 @@ class SettingsView(QWidget):
             self._download_model(model_name)
 
     def _download_model(self, model_name: str) -> None:
-        """Download a Whisper model."""
-        progress = QProgressDialog("Downloading model...", "Cancel", 0, 0, self)
-        progress.setWindowTitle("Installing Model")
-        progress.setWindowModality(Qt.WindowModal)
-        progress.setCancelButton(None)
-        progress.show()
+        """Download a Whisper model with progress tracking."""
+        # Create progress dialog with determinate progress (0-100)
+        self.download_progress = QProgressDialog("Initializing download...", "Cancel", 0, 100, self)
+        self.download_progress.setWindowTitle("Installing Model")
+        self.download_progress.setWindowModality(Qt.WindowModal)
+        self.download_progress.setMinimumDuration(0)
+        self.download_progress.setValue(0)
+        self.download_progress.canceled.connect(self._cancel_download)
+        self.download_progress.show()
 
-        try:
-            import whisper
-            whisper.load_model(model_name)
-            progress.close()
-            QMessageBox.information(self, "Success", f"Model '{model_name}' downloaded successfully!")
+        # Create and start download worker
+        model_dir = SettingsHelper.get_model_directory()
+        self.download_worker = ModelDownloadWorker(model_name, model_dir)
+        self.download_worker.progress.connect(self._on_download_progress)
+        self.download_worker.finished.connect(self._on_download_finished)
+        self.download_worker.start()
+
+    def _on_download_progress(self, percentage: int) -> None:
+        """Update download progress."""
+        if hasattr(self, 'download_progress') and self.download_progress:
+            self.download_progress.setValue(percentage)
+            self.download_progress.setLabelText("Downloading model...")
+
+    def _on_download_finished(self, success: bool, error_message: str) -> None:
+        """Handle download completion."""
+        if hasattr(self, 'download_progress') and self.download_progress:
+            self.download_progress.close()
+
+        if success:
+            QMessageBox.information(self, "Success", "Model downloaded successfully!")
             self._refresh_models_list()
-        except Exception as e:
-            progress.close()
-            QMessageBox.critical(self, "Error", f"Failed to download model: {str(e)}")
+            # Emit signal to update main UI (but don't close settings)
+            self.models_changed.emit()
+        else:
+            QMessageBox.critical(self, "Error", f"Failed to download model: {error_message}")
+
+        # Clean up worker - just set to None, Qt will clean up the thread
+        if hasattr(self, 'download_worker'):
+            self.download_worker = None
+
+    def _cancel_download(self) -> None:
+        """Cancel the ongoing download."""
+        if hasattr(self, 'download_worker') and self.download_worker:
+            self.download_worker.terminate()
+            self.download_worker.wait()
+            self.download_worker = None
+
+    def _browse_model_path(self) -> None:
+        """Browse for a custom model directory."""
+        current_path = self.model_path_edit.text()
+        if not current_path:
+            current_path = str(Path.home())
+
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Whisper Models Directory",
+            current_path,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+
+        if directory:
+            self.model_path_edit.setText(directory)
+            # Save the path immediately
+            Context.Settings.set("whisper_models_path", directory)
+            # Refresh models list to show models in new directory
+            self._refresh_models_list()
+
+    def _delete_selected_model(self) -> None:
+        """Delete the selected Whisper model."""
+        current_item = self.models_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "No Selection", "Please select a model to delete.")
+            return
+
+        is_installed = current_item.data(Qt.UserRole)
+        if not is_installed:
+            QMessageBox.information(self, "Not Installed", "This model is not installed.")
+            return
+
+        model_name = current_item.text().replace(" ✓", "").strip()
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Model",
+            f"Are you sure you want to delete the '{model_name}' model?\n\n"
+            f"This will permanently remove the model file from your system.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            if SettingsHelper.delete_model(model_name):
+                QMessageBox.information(self, "Success", f"Model '{model_name}' deleted successfully!")
+                self._refresh_models_list()
+                # Emit signal to update main UI (but don't close settings)
+                self.models_changed.emit()
+            else:
+                QMessageBox.critical(self, "Error", f"Failed to delete model '{model_name}'.")

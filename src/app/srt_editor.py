@@ -111,7 +111,7 @@ class SrtEditorDialog(QDialog):
         """Initialize the editor UI."""
         self.setWindowTitle(f"SRT Editor - {self.srt_file_path.name}")
         self.setMinimumWidth(600)
-        self.setMinimumHeight(400)
+        self.setMinimumHeight(240)  # 40% smaller than 400
 
         layout = QVBoxLayout()
         layout.setSpacing(15)
@@ -162,6 +162,8 @@ class SrtEditorDialog(QDialog):
         # Text edit section
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText("Subtitle text...")
+        # Set maximum height to half of the previous default
+        self.text_edit.setMaximumHeight(100)
         layout.addWidget(self.text_edit)
 
         # Save/Cancel buttons

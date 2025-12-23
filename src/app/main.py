@@ -27,7 +27,13 @@ def run_main_app(app: QApplication) -> int:
     style_file = Context.assets_dir / "style.qss"
     if style_file.exists():
         try:
-            app.setStyleSheet(style_file.read_text(encoding="utf-8"))
+            stylesheet = style_file.read_text(encoding="utf-8")
+            # Replace relative asset paths with absolute paths
+            # Qt resolves url() paths relative to the working directory, not the QSS file
+            # This ensures icons work both in dev mode and when bundled by PyInstaller
+            icons_dir = (Context.assets_dir / "icons").as_posix()
+            stylesheet = stylesheet.replace('url("assets/icons/', f'url("{icons_dir}/')
+            app.setStyleSheet(stylesheet)
         except Exception as e:
             print(f"Failed to load stylesheet: {e}")
 
