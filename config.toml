@@ -1,0 +1,19 @@
+[app]
+name = "WaveScript"
+version = "0.1.0"
+organization = "LCAI"
+identifier = "ch.lcai.wavescript"
+entry_module = "src.app.main"
+
+[build]
+
+# Bundle ffmpeg binary for audio processing
+add_binary = [
+    { name = "ffmpeg", dest = ".", required = false }
+]
+
+# Hidden imports required for Whisper/tiktoken to work
+hidden_imports = [
+    "tiktoken_ext.openai_public",
+    "tiktoken_ext"
+]

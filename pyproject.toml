@@ -1,0 +1,30 @@
+[project]
+name = "wavescript"
+version = "0.1.0"
+description = "WaveScript"
+requires-python = ">=3.12"
+dependencies = [
+    "pyside6>=6.7",
+    "pyinstaller>=6",
+    "openai",
+    "openai-whisper",
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16",
+    "pyside6-stubs>=6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+run = "src.app.main:main"
+build = "src.util.build:main"

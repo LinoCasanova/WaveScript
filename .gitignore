@@ -1,0 +1,15 @@
+# OS
+.DS_Store
+Thumbs.db
+.vscode/
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+build/
+dist/
+
+# Others
+Pipfile.lock
+mypy.ini

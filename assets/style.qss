@@ -1,0 +1,329 @@
+/* =========================================================
+   Global base
+   ========================================================= */
+
+QWidget {
+    background-color: #06071b;
+    color: #e7e7e7;
+    font-family: "Comfortaa";
+}
+
+/* =========================================================
+   Title
+   ========================================================= */
+
+QLabel#Title {
+    font-size: 55px;
+    font-weight: 600;
+    color: #00ffee;
+    letter-spacing: 1px;
+}
+
+/* =========================================================
+   Shared input widgets
+   ========================================================= */
+
+QLineEdit,
+QTextEdit,
+QPlainTextEdit,
+QComboBox,
+QSpinBox,
+QDoubleSpinBox {
+    padding: 6px;
+    border: 1px solid #3b3d42;
+    border-radius: 3px;
+    background-color: #0a0c24;
+    color: #e7e7e7;
+}
+
+/* keep border width constant */
+QLineEdit:focus,
+QTextEdit:focus,
+QPlainTextEdit:focus,
+QComboBox:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus {
+    border-color: #00ffee;
+}
+
+/* =========================================================
+   GroupBox
+   ========================================================= */
+
+QGroupBox {
+    font-weight: 600;
+    border: 2px solid #3b3d42;
+    border-radius: 5px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    color: #00ffee;
+}
+
+/* =========================================================
+   PushButton
+   ========================================================= */
+
+QPushButton {
+    padding: 5px 15px;
+    border-radius: 3px;
+    border: 1px solid #3b3d42;
+    background-color: #3b3d42;
+    color: #e7e7e7;
+}
+
+QPushButton:hover {
+    background-color: #00ffee;
+    border-color: #00ffee;
+    color: #06071b;
+}
+
+QPushButton:pressed {
+    background-color: #ea0a54;
+    border-color: #ea0a54;
+    color: white;
+}
+
+QPushButton:disabled {
+    background-color: #3b3d42;
+    color: #666666;
+}
+
+/* Special button */
+QPushButton#TranscribeButton {
+    background-color: #00ffee;
+    color: #06071b;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+}
+
+QPushButton#TranscribeButton:hover {
+    background-color: #ea0a54;
+    color: white;
+}
+
+QPushButton#TranscribeButton:pressed {
+    background-color: #c00845;
+    color: white;
+}
+
+QPushButton#TranscribeButton:disabled {
+    background-color: #3b3d42;
+    color: #666666;
+}
+
+/* =========================================================
+   ComboBox (button-style arrow)
+   ========================================================= */
+
+QComboBox {
+    padding-right: 24px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 22px;
+
+    border-left: 1px solid #3b3d42;
+    background-color: #3b3d42;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+/* Make the arrow subcontrol fill the whole drop-down area so :hover triggers */
+QComboBox::down-arrow {
+    image: url("assets/icons/chevron-down_light.svg");
+    width: 22px;          /* match drop-down width */
+    height: 100%;
+    padding: 0;           /* keep it centered */
+}
+
+/* Arrow changes by its own hover/pressed state (reliable) */
+QComboBox::down-arrow:hover {
+    image: url("assets/icons/chevron-down_dark.svg");
+}
+
+QComboBox::down-arrow:pressed {
+    image: url("assets/icons/chevron-down_white.svg");
+}
+
+/* Background still follows the button area */
+QComboBox::drop-down:hover {
+    background-color: #00ffee;
+    border-left-color: #00ffee;
+}
+
+QComboBox::drop-down:pressed {
+    background-color: #ea0a54;
+    border-left-color: #ea0a54;
+}
+
+
+/* =========================================================
+   SpinBox / DoubleSpinBox (button-style arrows)
+   ========================================================= */
+
+QSpinBox, QDoubleSpinBox {
+    padding-right: 24px;
+}
+
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: padding;
+    width: 22px;
+    border-left: 1px solid #3b3d42;
+    background-color: #3b3d42;
+}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-position: top right;
+    border-top-right-radius: 3px;
+}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: 3px;
+}
+
+/* Button background behavior (like QPushButton) */
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #00ffee;
+    border-left-color: #00ffee;
+}
+
+QSpinBox::up-button:pressed, QSpinBox::down-button:pressed,
+QDoubleSpinBox::up-button:pressed, QDoubleSpinBox::down-button:pressed {
+    background-color: #ea0a54;
+    border-left-color: #ea0a54;
+}
+
+/* --- Arrows: use image (not border-image) so they do NOT stretch --- */
+/* Make arrow subcontrols wide/tall enough to receive hover events reliably */
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    width: 22px;     /* match button width */
+    height: 12px;    /* glyph size area; doesn't stretch the svg itself */
+}
+
+/* Default icons */
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url("assets/icons/chevron-up_light.svg");
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url("assets/icons/chevron-down_light.svg");
+}
+
+/* Hover icons */
+QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover {
+    image: url("assets/icons/chevron-up_dark.svg");
+}
+
+QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover {
+    image: url("assets/icons/chevron-down_dark.svg");
+}
+
+/* Pressed icons */
+QSpinBox::up-arrow:pressed, QDoubleSpinBox::up-arrow:pressed {
+    image: url("assets/icons/chevron-up_white.svg");
+}
+
+QSpinBox::down-arrow:pressed, QDoubleSpinBox::down-arrow:pressed {
+    image: url("assets/icons/chevron-down_white.svg");
+}
+
+
+
+/* =========================================================
+   RadioButton
+   ========================================================= */
+
+QRadioButton {
+    spacing: 5px;
+}
+
+QRadioButton:disabled {
+    color: #4a4c52;
+}
+
+QRadioButton::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #3b3d42;
+    border-radius: 9px;
+    background-color: #0a0c24;
+}
+
+QRadioButton::indicator:hover {
+    border-color: #00ffee;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #00ffee;
+    border-color: #00ffee;
+}
+
+QRadioButton::indicator:disabled {
+    border-color: #2a2b30;
+}
+
+/* =========================================================
+   ProgressBar
+   ========================================================= */
+
+QProgressBar {
+    border: 2px solid #3b3d42;
+    border-radius: 5px;
+    text-align: center;
+    background-color: #0a0c24;
+}
+
+QProgressBar::chunk {
+    background-color: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #00ffee,
+        stop:1 #ea0a54
+    );
+    border-radius: 3px;
+}
+
+/* =========================================================
+   ScrollBars
+   ========================================================= */
+
+QScrollBar {
+    border: none;
+    background-color: #0a0c24;
+    margin: 0;
+}
+
+QScrollBar:vertical { width: 10px; }
+QScrollBar:horizontal { height: 10px; }
+
+QScrollBar::handle {
+    background-color: #00ffee;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:hover {
+    background-color: #ea0a54;
+}
+
+QScrollBar::handle:vertical { min-height: 20px; }
+QScrollBar::handle:horizontal { min-width: 20px; }
+
+QScrollBar::add-line,
+QScrollBar::sub-line {
+    width: 0px;
+    height: 0px;
+}
