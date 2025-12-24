@@ -14,7 +14,7 @@ add_data = [
 
 # Bundle ffmpeg binary for audio processing
 add_binary = [
-    { name = "ffmpeg", dest = ".", required = false }
+    { name = "ffmpeg", dest = ".", required = true }
 ]
 
 # Hidden imports required for Whisper/tiktoken to work
