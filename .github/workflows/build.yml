@@ -69,7 +69,7 @@ jobs:
         uv pip install --system pyinstaller
 
     - name: Build application
-      run: uv run build --debug --package
+      run: uv run build --package
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

@@ -133,7 +133,6 @@ class TranscriberUI(QWidget):
             pressed_icon=icon_dir / "gear_pressed.svg",
             size=20
         )
-        self.settings_btn.clicked.connect(lambda: print("[DEBUG] Settings button clicked!"))
         self.settings_btn.clicked.connect(self.toggle_settings)
         self.settings_btn.setToolTip("Settings")
         top_bar_layout.addWidget(self.settings_btn)
@@ -386,23 +385,15 @@ class TranscriberUI(QWidget):
 
     def toggle_settings(self):
         """Switch to settings view."""
-        try:
-            print("[DEBUG] toggle_settings called")
-            # Load current settings
-            self.settings_view.load_settings()
-            print("[DEBUG] settings loaded")
+        # Load current settings
+        self.settings_view.load_settings()
 
-            # Hide header and top bar (with gear)
-            self.header_widget.setVisible(False)
-            self.top_bar.setVisible(False)
+        # Hide header and top bar (with gear)
+        self.header_widget.setVisible(False)
+        self.top_bar.setVisible(False)
 
-            # Switch to settings view
-            self.stacked_widget.setCurrentIndex(1)
-            print("[DEBUG] switched to settings view")
-        except Exception as e:
-            print(f"[ERROR] Failed to open settings: {e}")
-            import traceback
-            traceback.print_exc()
+        # Switch to settings view
+        self.stacked_widget.setCurrentIndex(1)
 
     def _return_to_main_view(self):
         """Return to main transcription view."""
