@@ -37,17 +37,24 @@ def _icon_args(platform: Platform, assets_dir: Path) -> list[str]:
 
 
 
-def _create_zip_windows(exe_path: Path, out_zip: Path) -> None:
+def _create_zip_windows(exe_path: Path, out_zip: Path, is_onedir: bool = False) -> None:
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     base = out_zip.with_suffix("")  # shutil adds .zip automatically
-    # Package just the exe; extend as needed
-    tmp_dir = out_zip.parent / "_zip_tmp"
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(exe_path, tmp_dir / exe_path.name)
-    print(f"Packaging (zip): {out_zip}")
-    shutil.make_archive(str(base), "zip", root_dir=tmp_dir)
-    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    if is_onedir:
+        # For onedir builds, package the entire folder containing exe and dependencies
+        app_dir = exe_path.parent
+        print(f"Packaging onedir (zip): {out_zip} from {app_dir}")
+        shutil.make_archive(str(base), "zip", root_dir=app_dir.parent, base_dir=app_dir.name)
+    else:
+        # For onefile builds, package just the exe
+        tmp_dir = out_zip.parent / "_zip_tmp"
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(exe_path, tmp_dir / exe_path.name)
+        print(f"Packaging (zip): {out_zip}")
+        shutil.make_archive(str(base), "zip", root_dir=tmp_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 def _create_dmg(app_path: Path, out_dmg: Path) -> None:
     # Requires hdiutil (macOS)
@@ -64,7 +71,7 @@ def _create_dmg(app_path: Path, out_dmg: Path) -> None:
     print("Packaging (dmg):", " ".join(cmd))
     subprun(cmd, check=True)
 
-def _handle_packaging(platform: Platform, app_name: str, dist_dir: Path, build_root: Path, package: bool) -> None:
+def _handle_packaging(platform: Platform, app_name: str, dist_dir: Path, build_root: Path, package: bool, onefile: bool) -> None:
     """Handle post-build packaging if requested."""
     if not package:
         return
@@ -80,14 +87,16 @@ def _handle_packaging(platform: Platform, app_name: str, dist_dir: Path, build_r
 
     elif platform == Platform.WINDOWS:
         exe_path = dist_dir / f"{app_name}.exe"
+        is_onedir = False
         if not exe_path.exists():
             # one-dir build puts exe inside a folder named app_name
             exe_path = dist_dir / app_name / f"{app_name}.exe"
+            is_onedir = True
         if not exe_path.exists():
             raise SystemExit(f"Expected exe at {exe_path}, but it was not found.")
 
         out_zip = build_root / f"{app_name}-win.zip"
-        _create_zip_windows(exe_path, out_zip)
+        _create_zip_windows(exe_path, out_zip, is_onedir=is_onedir)
         print(f"[build] ZIP: {out_zip}")
 
 
@@ -168,7 +177,7 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
             sysexit(e.returncode)
 
         # Skip to packaging
-        _handle_packaging(platform, app_name, dist_dir, build_root, package)
+        _handle_packaging(platform, app_name, dist_dir, build_root, package, onefile)
         return
 
     # Build base command (for generating spec or direct build)
@@ -254,7 +263,7 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
         print("     You can customize it and future builds will use it automatically.")
 
     # Handle packaging
-    _handle_packaging(platform, app_name, dist_dir, build_root, package)
+    _handle_packaging(platform, app_name, dist_dir, build_root, package, onefile)
 
 
 
