@@ -233,18 +233,23 @@ def build(debug: bool = False, package: bool = False, use_spec: bool = True) -> 
 
         # On Windows, resolve Chocolatey shims to actual binary
         if binary_path and OSNAME == "nt" and binary_entry["name"] == "ffmpeg":
-            # Check if it's a Chocolatey shim (contains reference to chocolatey lib path)
-            try:
-                with open(binary_path, 'rb') as f:
-                    content = f.read(1024).decode('utf-8', errors='ignore')
-                    if 'chocolatey' in content.lower():
-                        # Find actual ffmpeg.exe in Chocolatey lib
-                        choco_ffmpeg = Path("C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe")
-                        if choco_ffmpeg.exists():
-                            binary_path = str(choco_ffmpeg)
-                            print(f"Resolved Chocolatey shim to actual binary: {binary_path}")
-            except Exception as e:
-                print(f"Warning: Could not resolve ffmpeg shim: {e}")
+            # Chocolatey creates shims in C:\ProgramData\chocolatey\bin
+            # The actual binary is in C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin
+            binary_path_obj = Path(binary_path)
+
+            # Check if this is likely a Chocolatey installation
+            if "chocolatey" in str(binary_path_obj).lower():
+                # Try standard Chocolatey ffmpeg location
+                choco_ffmpeg = Path("C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe")
+                if choco_ffmpeg.exists():
+                    binary_path = str(choco_ffmpeg)
+                    print(f"Resolved Chocolatey shim to actual binary: {binary_path}")
+                else:
+                    # We found a shim but can't find the actual binary - always fail
+                    print(f"ERROR: Detected Chocolatey shim at {binary_path}")
+                    print(f"       but actual binary not found at {choco_ffmpeg}")
+                    print(f"       Cannot bundle a shim - need the real ffmpeg.exe")
+                    sysexit(1)
 
         if binary_path:
             cmd.extend(["--add-binary", f"{binary_path}{_sep()}{binary_entry.get('dest', '.')}"])
