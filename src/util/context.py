@@ -9,6 +9,9 @@ from types import MappingProxyType
 from tomllib import load as tomlload
 from PySide6.QtCore import QSettings
 
+# Type alias for settings values
+SettingsValue = str | int | float | bool
+
 
 class Platform(Enum):
     """Supported platforms for WaveScript."""
@@ -69,18 +72,56 @@ class _ConfigAccessor:
 
 
 class _SettingsAccessor:
-    """Accessor for QSettings persistent storage."""
+    """Accessor for QSettings persistent storage with type preservation."""
+
+    # Allowed primitive types with type name -> type mapping
+    _ALLOWED_TYPES = {t.__name__: t for t in (str, int, float, bool)}
 
     def __init__(self, qsettings: QSettings):
         self._qsettings = qsettings
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get a value from QSettings."""
-        return self._qsettings.value(key, default)
+    def get(self, key: str, default: SettingsValue | None = None) -> SettingsValue | None:
+        """Get a value from QSettings with type preservation."""
+        value = self._qsettings.value(key, default)
 
-    def set(self, key: str, value: Any) -> None:
-        """Set a value in QSettings."""
+        # QSettings on Windows stores everything as strings in registry
+        # Check for type metadata to restore original type
+        type_key = f"{key}__type"
+        if self._qsettings.contains(type_key):
+            type_name = self._qsettings.value(type_key)
+
+            # Get the actual type from our allowed types
+            if type_name in self._ALLOWED_TYPES:
+                target_type = self._ALLOWED_TYPES[type_name]
+
+                # Skip conversion if already correct type
+                if isinstance(value, target_type):
+                    return value
+
+                # Convert string representation to target type
+                try:
+                    if target_type is bool:
+                        return str(value).lower() == 'true'
+                    else:
+                        return target_type(value)
+                except (ValueError, TypeError):
+                    return default
+
+        return value
+
+    def set(self, key: str, value: SettingsValue) -> None:
+        """Set a value in QSettings with type preservation."""
+        # Only allow primitive types
+        value_type = type(value)
+        if value_type.__name__ not in self._ALLOWED_TYPES:
+            raise TypeError(f"Only primitive types are allowed in Settings: {self._ALLOWED_TYPES.keys()}")
+
         self._qsettings.setValue(key, value)
+
+        # Store type metadata for non-string types
+        if value_type is not str:
+            self._qsettings.setValue(f"{key}__type", value_type.__name__)
+
         self._qsettings.sync()
 
     def delete(self, key: str) -> None:
