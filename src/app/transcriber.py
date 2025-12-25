@@ -18,6 +18,7 @@ from .transcriber_types import (
 
 # Heavy dependencies - only imported here, not by UI
 import whisper
+from whisper.utils import WriteSRT
 import openai
 import torch
 
@@ -176,18 +177,23 @@ class Transcriber:
 
         # Use custom output name if provided, otherwise use input filename
         if output_name:
-            output_path = file_path.parent / f"{output_name}.srt"
+            output_path = file_path.parent / f"{Path(output_name).stem}.srt"
         else:
-            output_path = file_path.parent / f"{file_path.name}.srt"
+            output_path = file_path.parent / f"{file_path.stem}.srt"
 
         log(f"Writing subtitles to {output_path.name}")
 
-        Transcriber._write_srt(
-            result["segments"],
-            output_path,
-            settings.max_line_count,
-            settings.max_words_per_line
-        )
+        # Use Whisper's built-in SRT writer
+        writer = WriteSRT(str(output_path.parent))
+        with open(output_path, "w", encoding="utf-8") as f:
+            writer.write_result(
+                result,
+                f,
+                options={
+                    "max_line_width": settings.max_line_width,
+                    "max_line_count": settings.max_line_count
+                }
+            )
 
         log("✓ Transcription complete!")
 
@@ -242,43 +248,26 @@ class Transcriber:
 
         # Use custom output name if provided, otherwise use input filename
         if output_name:
-            output_path = file_path.parent / f"{output_name}.srt"
+            output_path = file_path.parent / f"{Path(output_name).stem}.srt"
         else:
-            output_path = file_path.parent / f"{file_path.name}.srt"
+            output_path = file_path.parent / f"{file_path.stem}.srt"
 
         log(f"Writing subtitles to {output_path.name}")
 
-        Transcriber._write_srt(
-            segments,
-            output_path,
-            settings.max_line_count,
-            settings.max_words_per_line
-        )
+        # Use Whisper's built-in SRT writer
+        # Convert segments back to result format for WriteSRT
+        result = {"segments": segments}
+        writer = WriteSRT(str(output_path.parent))
+        with open(output_path, "w", encoding="utf-8") as f:
+            writer.write_result(
+                result,
+                f,
+                options={
+                    "max_line_width": settings.max_line_width,
+                    "max_line_count": settings.max_line_count
+                }
+            )
 
         log("✓ Transcription complete!")
 
         return output_path
-
-    @staticmethod
-    def _write_srt(segments: dict, output_path: Path, max_lines: int=1, max_words: int=8) -> None:
-        """Converts Whisper segments to an SRT file."""
-        def fmt_time(seconds: float) -> str:
-            ms = int((seconds % 1) * 1000)
-            h, m, s = int(seconds // 3600), int((seconds % 3600) // 60), int(seconds % 60)
-            return f"{h:02}:{m:02}:{s:02},{ms:03}"
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            for i, seg in enumerate(segments, start=1):
-                start = fmt_time(seg["start"])
-                end = fmt_time(seg["end"])
-                text = seg["text"].strip()
-
-                # Simple line wrapping
-                words = text.split()
-                lines = []
-                for j in range(0, len(words), max_words):
-                    lines.append(" ".join(words[j:j + max_words]))
-                if len(lines) > max_lines:
-                    lines = [" ".join(words[:max_words * max_lines]) + " …"]
-
-                f.write(f"{i}\n{start} --> {end}\n" + "\n".join(lines) + "\n\n")
