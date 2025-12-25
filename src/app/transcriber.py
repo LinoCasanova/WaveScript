@@ -71,6 +71,8 @@ class TranscriptionWorker(QThread):
 
 
 class Transcriber:
+    # Class variable to track if MPS has failed (disables MPS for the session)
+    _mps_disabled = False
 
     @staticmethod
     def detect_device() -> DeviceInfo:
@@ -79,7 +81,7 @@ class Transcriber:
 
         Priority:
         1. CUDA (NVIDIA GPU on Windows/Linux)
-        2. MPS (Apple Silicon GPU on macOS)
+        2. MPS (Apple Silicon GPU on macOS) - unless previously failed
         3. CPU (fallback)
 
         Returns:
@@ -92,7 +94,7 @@ class Transcriber:
                 name="cuda",
                 display_name=f"GPU (CUDA - {gpu_name})"
             )
-        elif torch.backends.mps.is_available():
+        elif torch.backends.mps.is_available() and not Transcriber._mps_disabled:
             return DeviceInfo(
                 device="mps",
                 name="mps",
@@ -151,6 +153,17 @@ class Transcriber:
             # MPS can produce NaN errors on Apple Silicon - fall back to CPU
             if device_info.device == "mps":
                 log(f"⚠️  MPS failed with error, falling back to CPU: {e}")
+                if progress_callback:
+                    progress_callback("GPU acceleration failed, switching to CPU for this session...")
+
+                # Disable MPS for the rest of the session (it stays corrupted)
+                Transcriber._mps_disabled = True
+
+                # Clean up failed MPS model and clear MPS cache
+                del model
+                if hasattr(torch.mps, 'empty_cache'):
+                    torch.mps.empty_cache()
+
                 device_info = DeviceInfo(device="cpu", name="cpu", display_name="CPU (MPS fallback)")
                 model = whisper.load_model(model_type.value, device="cpu", download_root=str(model_dir))
                 result = model.transcribe(
