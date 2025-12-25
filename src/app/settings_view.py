@@ -56,19 +56,29 @@ class ModelDownloadWorker(QThread):
             self.download_dir.mkdir(parents=True, exist_ok=True)
             output_path = self.download_dir / f"{self.model_name}.pt"
 
-            # Download with progress tracking
-            def progress_hook(block_num, block_size, total_size):
-                if total_size > 0:
-                    downloaded = block_num * block_size
-                    percentage = min(int((downloaded / total_size) * 100), 100)
-                    # Only emit progress updates when percentage changes (reduce signal overhead)
-                    if percentage != self._last_reported_percentage:
-                        self._last_reported_percentage = percentage
-                        self.progress.emit(percentage)
-
-            # Create SSL context with certifi certificates
+            # Download with progress tracking using SSL context
             ssl_context = ssl.create_default_context(cafile=certifi.where())
-            urllib.request.urlretrieve(url, output_path, reporthook=progress_hook, context=ssl_context)
+
+            # Open URL with SSL context
+            with urllib.request.urlopen(url, context=ssl_context) as response:
+                total_size = int(response.headers.get('Content-Length', 0))
+                downloaded = 0
+                chunk_size = 8192
+
+                with open(output_path, 'wb') as f:
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+
+                        # Emit progress updates
+                        if total_size > 0:
+                            percentage = min(int((downloaded / total_size) * 100), 100)
+                            if percentage != self._last_reported_percentage:
+                                self._last_reported_percentage = percentage
+                                self.progress.emit(percentage)
 
             self.finished.emit(True, "")
 
@@ -383,8 +393,11 @@ class SettingsView(QWidget):
         # Create and start download worker
         model_dir = SettingsHelper.get_model_directory()
         self.download_worker = ModelDownloadWorker(model_name, model_dir)
+
+        # Connect signals
         self.download_worker.progress.connect(self._on_download_progress)
         self.download_worker.finished.connect(self._on_download_finished)
+
         self.download_worker.start()
 
     def _on_download_progress(self, percentage: int) -> None:
@@ -395,8 +408,22 @@ class SettingsView(QWidget):
 
     def _on_download_finished(self, success: bool, error_message: str) -> None:
         """Handle download completion."""
+        # Clean up the worker thread immediately when finished signal is received
+        if hasattr(self, 'download_worker') and self.download_worker:
+            # Disconnect all signals first
+            try:
+                self.download_worker.progress.disconnect()
+                self.download_worker.finished.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+
+            # Schedule thread for deletion
+            self.download_worker.deleteLater()
+            self.download_worker = None
+
         if hasattr(self, 'download_progress') and self.download_progress:
             self.download_progress.close()
+            self.download_progress = None
 
         if success:
             QMessageBox.information(self, "Success", "Model downloaded successfully!")
@@ -405,15 +432,30 @@ class SettingsView(QWidget):
         else:
             QMessageBox.critical(self, "Error", f"Failed to download model: {error_message}")
 
-        # Clean up worker - just set to None, Qt will clean up the thread
-        if hasattr(self, 'download_worker'):
-            self.download_worker = None
-
     def _cancel_download(self) -> None:
         """Cancel the ongoing download."""
+        # Close and disconnect the progress dialog first
+        if hasattr(self, 'download_progress') and self.download_progress:
+            try:
+                self.download_progress.canceled.disconnect(self._cancel_download)
+            except (TypeError, RuntimeError):
+                pass
+
+            self.download_progress.close()
+            self.download_progress = None
+
+        # Terminate the worker thread and clean up
         if hasattr(self, 'download_worker') and self.download_worker:
+            # Disconnect signals to prevent callbacks after cancellation
+            try:
+                self.download_worker.progress.disconnect()
+                self.download_worker.finished.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+
             self.download_worker.terminate()
             self.download_worker.wait()
+            self.download_worker.deleteLater()
             self.download_worker = None
 
     def _browse_model_path(self) -> None:
