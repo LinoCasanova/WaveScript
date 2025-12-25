@@ -44,6 +44,7 @@ class ModelDownloadWorker(QThread):
                 "base": "https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt",
                 "small": "https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt",
                 "medium": "https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt",
+                "turbo": "https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt",
                 "large": "https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt",
             }
 
@@ -95,6 +96,7 @@ class SettingsHelper:
         "base": 145,
         "small": 466,
         "medium": 1500,
+        "turbo": 1600,
         "large": 2900
     }
 
@@ -283,11 +285,15 @@ class SettingsView(QWidget):
         remove_temp = Context.Settings.get("remove_temp_files_on_close", True)
         self.remove_temp_checkbox.setChecked(remove_temp)
 
-        # Load model path
+        # Load model path - check if custom path still exists
         model_path = Context.Settings.get("whisper_models_path", "")
-        if model_path:
+        if model_path and Path(model_path).exists():
             self.model_path_edit.setText(model_path)
         else:
+            # If custom path doesn't exist or is empty, use default and clear custom setting
+            if model_path and not Path(model_path).exists():
+                # Custom path was set but directory was deleted/moved - clear the setting
+                Context.Settings.delete("whisper_models_path")
             default_path = SettingsHelper.get_model_directory()
             self.model_path_edit.setText(str(default_path))
 

@@ -74,14 +74,14 @@ class TranscriberUI(QWidget):
         """Load saved transcription settings from Context.Settings or use defaults."""
         try:
             language_value = Context.Settings.get("transcription_language", Language.DE.value)
-            max_line_count = Context.Settings.get("transcription_max_line_count", 1)
-            max_words_per_line = Context.Settings.get("transcription_max_words_per_line", 8)
+            max_line_count = Context.Settings.get("transcription_max_line_count", 2)
+            max_line_width = Context.Settings.get("transcription_max_line_width", 42)
             initial_prompt = Context.Settings.get("transcription_initial_prompt", "")
 
             return TranscriptionSettings(
                 language=Language(language_value),
                 max_line_count=max_line_count,
-                max_words_per_line=max_words_per_line,
+                max_line_width=max_line_width,
                 initial_prompt=initial_prompt if initial_prompt else None
             )
         except (ValueError, KeyError):
@@ -253,8 +253,7 @@ class TranscriberUI(QWidget):
         header_layout.addWidget(app_name)
 
         header.setLayout(header_layout)
-        # Set fixed height after layout is set to prevent header from expanding vertically
-        header.setFixedHeight(header.sizeHint().height())
+        header.setFixedHeight(90)
         return header
 
     def _create_file_selection_group(self) -> QGroupBox:
@@ -349,18 +348,18 @@ class TranscriberUI(QWidget):
         lines_layout.addWidget(self.max_lines_spin)
         layout.addLayout(lines_layout)
 
-        # Max words per line
-        words_layout = QHBoxLayout()
-        words_label = QLabel("Max Words per Line:")
-        self.max_words_spin = QSpinBox()
-        self.max_words_spin.setFixedWidth(widget_width)
-        self.max_words_spin.setMinimum(1)
-        self.max_words_spin.setMaximum(20)
-        self.max_words_spin.setValue(self.saved_settings.max_words_per_line)
-        words_layout.addWidget(words_label)
-        words_layout.addStretch()
-        words_layout.addWidget(self.max_words_spin)
-        layout.addLayout(words_layout)
+        # Max characters per line
+        chars_layout = QHBoxLayout()
+        chars_label = QLabel("Max Characters per Line:")
+        self.max_chars_spin = QSpinBox()
+        self.max_chars_spin.setFixedWidth(widget_width)
+        self.max_chars_spin.setMinimum(1)
+        self.max_chars_spin.setMaximum(99)
+        self.max_chars_spin.setValue(self.saved_settings.max_line_width)
+        chars_layout.addWidget(chars_label)
+        chars_layout.addStretch()
+        chars_layout.addWidget(self.max_chars_spin)
+        layout.addLayout(chars_layout)
 
         # Add extra spacing before initial prompt
         layout.addSpacing(10)
@@ -535,7 +534,7 @@ class TranscriberUI(QWidget):
         settings = TranscriptionSettings(
             language=language,
             max_line_count=self.max_lines_spin.value(),
-            max_words_per_line=self.max_words_spin.value(),
+            max_line_width=self.max_chars_spin.value(),
             initial_prompt=initial_prompt
         )
 
@@ -545,7 +544,7 @@ class TranscriberUI(QWidget):
         # Store settings and mode in Context.Settings for next time
         Context.Settings.set("transcription_language", settings.language.value)
         Context.Settings.set("transcription_max_line_count", settings.max_line_count)
-        Context.Settings.set("transcription_max_words_per_line", settings.max_words_per_line)
+        Context.Settings.set("transcription_max_line_width", settings.max_line_width)
         Context.Settings.set("transcription_initial_prompt", settings.initial_prompt or "")
         Context.Settings.set("transcription_mode", mode.value)
 
