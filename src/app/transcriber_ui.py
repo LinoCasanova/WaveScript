@@ -72,14 +72,21 @@ class TranscriberUI(QWidget):
 
     def _load_saved_settings(self) -> TranscriptionSettings:
         """Load saved transcription settings from Context.Settings or use defaults."""
-        settings_dict = Context.Settings.get("transcription_settings", None)
-        if settings_dict:
-            try:
-                return TranscriptionSettings.from_dict(settings_dict)
-            except (ValueError, KeyError):
-                # If stored settings are invalid, fall back to defaults
-                pass
-        return TranscriptionSettings()
+        try:
+            language_value = Context.Settings.get("transcription_language", Language.DE.value)
+            max_line_count = Context.Settings.get("transcription_max_line_count", 1)
+            max_words_per_line = Context.Settings.get("transcription_max_words_per_line", 8)
+            initial_prompt = Context.Settings.get("transcription_initial_prompt", "")
+
+            return TranscriptionSettings(
+                language=Language(language_value),
+                max_line_count=max_line_count,
+                max_words_per_line=max_words_per_line,
+                initial_prompt=initial_prompt if initial_prompt else None
+            )
+        except (ValueError, KeyError):
+            # If stored settings are invalid, fall back to defaults
+            return TranscriptionSettings()
 
     def _load_saved_mode(self) -> TranscriptionMode:
         """Load saved transcription mode from Context.Settings or use default."""
@@ -536,7 +543,10 @@ class TranscriberUI(QWidget):
         mode = TranscriptionMode.OFFLINE if self.offline_radio.isChecked() else TranscriptionMode.ONLINE
 
         # Store settings and mode in Context.Settings for next time
-        Context.Settings.set("transcription_settings", settings.to_dict())
+        Context.Settings.set("transcription_language", settings.language.value)
+        Context.Settings.set("transcription_max_line_count", settings.max_line_count)
+        Context.Settings.set("transcription_max_words_per_line", settings.max_words_per_line)
+        Context.Settings.set("transcription_initial_prompt", settings.initial_prompt or "")
         Context.Settings.set("transcription_mode", mode.value)
 
         # Determine output filename (use original file name, not temp file name)
