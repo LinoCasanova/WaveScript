@@ -285,6 +285,41 @@ QRadioButton::indicator:disabled {
 }
 
 /* =========================================================
+   CheckBox
+   ========================================================= */
+
+QCheckBox {
+    spacing: 5px;
+    margin-bottom: 8px;
+}
+
+QCheckBox:disabled {
+    color: #4a4c52;
+}
+
+QCheckBox::indicator {
+    width: 10px;
+    height: 10px;
+    border: 2px solid #3b3d42;
+    border-radius: 3px;
+    background-color: #0a0c24;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #00ffee;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #00ffee;
+    border-color: #00ffee;
+    image: url("assets/icons/check.svg");
+}
+
+QCheckBox::indicator:disabled {
+    border-color: #2a2b30;
+}
+
+/* =========================================================
    ProgressBar
    ========================================================= */
 
