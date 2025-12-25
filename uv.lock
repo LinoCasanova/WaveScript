@@ -1279,6 +1279,7 @@ name = "wavescript"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "openai" },
     { name = "openai-whisper" },
     { name = "pyinstaller" },
@@ -1295,6 +1296,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi" },
     { name = "openai" },
     { name = "openai-whisper" },
     { name = "pyinstaller", specifier = ">=6" },
