@@ -29,3 +29,17 @@ build-backend = "hatchling.build"
 [project.scripts]
 run = "src.app.main:main"
 build = "src.util.build:main"
+
+# Use CUDA-enabled PyTorch on Windows, default PyTorch on macOS (includes MPS)
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cuda", marker = "sys_platform == 'win32'" },
+]
+torchaudio = [
+    { index = "pytorch-cuda", marker = "sys_platform == 'win32'" },
+]
