@@ -149,6 +149,7 @@ class Transcriber:
                 str(file_path),
                 language=None if settings.language == Language.AUTO else settings.language.value,
                 initial_prompt=settings.initial_prompt,
+                word_timestamps=True,
             )
         except (RuntimeError, ValueError) as e:
             # MPS can produce NaN errors on Apple Silicon - fall back to CPU
@@ -171,6 +172,7 @@ class Transcriber:
                     str(file_path),
                     language=None if settings.language == Language.AUTO else settings.language.value,
                     initial_prompt=settings.initial_prompt,
+                    word_timestamps=True,
                 )
             else:
                 raise
